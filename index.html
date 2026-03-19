@@ -54,7 +54,7 @@
         }
     </style>
 </head>
-<body class="text-morandi-text min-h-screen flex justify-center">
+<body class="text-morandi-text min-h-screen flex justify-center relative">
 
     <!-- Toast 訊息提示 -->
     <div id="toast-msg" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-[130] hidden bg-morandi-text text-white px-6 py-3 rounded-full shadow-lg text-sm font-bold transition-all duration-300 opacity-0 translate-y-[-20px]">
@@ -259,7 +259,7 @@
             }
         ];
 
-        // 嘗試讀取本地端備份 (當在沒有雲端環境時做為退路)
+        // 嘗試讀取本地端備份
         const localSavedData = localStorage.getItem('localTripData');
         if (localSavedData) {
             try { tripData = JSON.parse(localSavedData); } catch(e) {}
@@ -270,7 +270,6 @@
         let auth, db, appId;
 
         try {
-            // 已經為您替換為您提供的專屬 Firebase Config！
             const firebaseConfig = {
               apiKey: "AIzaSyBLev7BsDbo3pErlazCh2ixIuhrgI14a6o",
               authDomain: "familytrip-4f7ac.firebaseapp.com",
@@ -284,7 +283,7 @@
             const firebaseApp = initializeApp(firebaseConfig);
             auth = getAuth(firebaseApp);
             db = getFirestore(firebaseApp);
-            appId = 'japan-trip-2026'; // 行程專屬ID
+            appId = 'japan-trip-2026';
             isCloudEnabled = true;
         } catch(error) {
             console.warn("Firebase 初始化失敗，切換為本地模式:", error);
@@ -293,15 +292,12 @@
         async function initAuth() {
             if (!isCloudEnabled) return;
             try {
-                // 由於您使用了專屬的 Firebase 專案，原本開發環境內建提供的 Token 會導致驗證不匹配 (custom-token-mismatch)
-                // 這裡強制全面使用您的 Anonymous (匿名登入)
                 await signInAnonymously(auth);
             } catch (e) {
                 console.error("登入失敗，請確認 Firebase Authentication 的 Anonymous (匿名登入) 是否已在後台啟用！", e);
             }
         }
 
-        // 啟動雲端監聽器
         if (isCloudEnabled) {
             onAuthStateChanged(auth, (user) => {
                 if (user) {
@@ -312,15 +308,12 @@
                             if (data.tripData) tripData = data.tripData;
                             if (data.memo !== undefined) cloudMemo = data.memo;
                         } else {
-                            // 初次寫入預設資料到您的專案中
                             if(isAdmin) saveToCloud();
                         }
-                        // 重新渲染畫面以套用雲端資料
                         const isDetailPage = document.getElementById('edit-modal') && !document.getElementById('edit-modal').classList.contains('hidden');
                         if (!isDetailPage && typeof window.renderHome === 'function') {
-                            // 如果當下在首頁就重繪首頁，如果當下在內頁就重繪內頁
                             if (document.querySelector('button[onclick="renderHome()"]')) {
-                                // 在內頁，不強制回首頁，但可考慮重繪當前頁 (這裡簡單化處理)
+                                // 正在內頁
                             } else {
                                 window.renderHome();
                             }
@@ -331,15 +324,12 @@
             initAuth();
         }
 
-        // 儲存機制
         async function saveToCloud() {
             if (!isAdmin) return;
             
-            // 永遠備份到本地
             localStorage.setItem('localTripData', JSON.stringify(tripData));
             localStorage.setItem('localMemo', cloudMemo);
 
-            // 同步至您專屬的 Firebase 雲端
             if (isCloudEnabled && auth.currentUser) {
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tripInfo', 'main');
@@ -355,7 +345,6 @@
             const toast = document.getElementById('toast-msg');
             toast.innerText = msg;
             toast.classList.remove('hidden');
-            // 強制重繪以套用動畫
             void toast.offsetWidth; 
             toast.classList.remove('opacity-0', 'translate-y-[-20px]');
             toast.classList.add('opacity-100', 'translate-y-0');
@@ -392,7 +381,7 @@
                 isAdmin = true;
                 localStorage.setItem('tripAdmin', 'true');
                 window.showToast("🔓 解鎖成功！您可以修改行程內容了。");
-                saveToCloud(); // 觸發一次儲存確保雲端啟動
+                saveToCloud(); 
                 window.closeAdminModal();
                 window.renderHome();
             } else {
@@ -469,7 +458,6 @@
             currentEditTarget = null;
         };
 
-        // --- 備忘錄儲存邏輯 ---
         window.saveMemo = function() {
             if (!isAdmin) return;
             const memoContent = document.getElementById('memo-textarea').value;
@@ -477,7 +465,6 @@
             saveToCloud();
         };
 
-        // --- Modal 邏輯 ---
         window.openImageModal = function(imgSrc) {
             const modal = document.getElementById('image-modal');
             const modalImg = document.getElementById('modal-image');
@@ -495,7 +482,6 @@
             modal.classList.remove('flex');
         };
 
-        // --- 渲染首頁 ---
         window.renderHome = function() {
             const app = document.getElementById('app');
             const savedMemo = cloudMemo || '';
@@ -667,7 +653,6 @@
             `;
         };
 
-        // --- 渲染詳細行程 ---
         window.renderDetail = function(index) {
             const day = tripData[index];
             const app = document.getElementById('app');
@@ -756,7 +741,7 @@
                         <div class="bg-morandi-card rounded-2xl p-4.5 shadow-soft border border-morandi-red-light/40 p-4 relative group">
                             <div class="flex justify-between items-center mb-2">
                                 <h3 class="text-md font-bold text-morandi-red flex items-center">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 001 1m-6 0h6"></path></svg>
                                     住宿資訊
                                 </h3>
                                 ${isAdmin ? `<button onclick="editField(${index}, 'hotel', '飯店名稱')" class="text-morandi-text-light hover:text-morandi-red bg-morandi-bg p-1.5 rounded-md transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>` : ''}
